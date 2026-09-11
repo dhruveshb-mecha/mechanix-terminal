@@ -44,6 +44,8 @@ class _TerminalViewState extends State<TerminalView>
   ({int col, int row})? _selectionEnd;
   bool _isSelecting = false;
 
+  bool get _isActive => widget.tabController.index == widget.index;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -53,24 +55,11 @@ class _TerminalViewState extends State<TerminalView>
     _focusNode.addListener(_handleFocusChange);
     widget.tabController.addListener(_handleTabChange);
 
-    if (widget.tabController.index == widget.index) {
+    if (_isActive) {
       _activateTerminal();
     }
 
-    _subscription = widget.terminalStream?.listen((id) {
-      if (id == widget.terminalId && mounted) {
-        final newFrame = getTerminalFrame(id: widget.terminalId);
-        if (newFrame != null) {
-          if (newFrame.isClosed) {
-            widget.onClosed?.call();
-            return;
-          }
-          setState(() {
-            _frame = newFrame;
-          });
-        }
-      }
-    });
+    _subscription = widget.terminalStream?.listen(_onStreamEvent);
     _frame = getTerminalFrame(id: widget.terminalId);
     if (_frame?.isClosed == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,27 +77,15 @@ class _TerminalViewState extends State<TerminalView>
       oldWidget.tabController.removeListener(_handleTabChange);
       widget.tabController.addListener(_handleTabChange);
 
-      if (widget.tabController.index == widget.index) {
+      if (_isActive) {
         _activateTerminal();
+        _fetchLatestFrame();
       }
     }
     if (oldWidget.terminalId != widget.terminalId ||
         oldWidget.terminalStream != widget.terminalStream) {
       _subscription?.cancel();
-      _subscription = widget.terminalStream?.listen((id) {
-        if (id == widget.terminalId && mounted) {
-          final newFrame = getTerminalFrame(id: widget.terminalId);
-          if (newFrame != null) {
-            if (newFrame.isClosed) {
-              widget.onClosed?.call();
-              return;
-            }
-            setState(() {
-              _frame = newFrame;
-            });
-          }
-        }
-      });
+      _subscription = widget.terminalStream?.listen(_onStreamEvent);
       _frame = getTerminalFrame(id: widget.terminalId);
       if (_frame?.isClosed == true) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -129,6 +106,44 @@ class _TerminalViewState extends State<TerminalView>
     super.dispose();
   }
 
+  void _onStreamEvent(int id) {
+    if (id != widget.terminalId || !mounted) return;
+
+    // Inactive tabs skip frame fetch; only check closure for background tab cleanup.
+    if (!_isActive) {
+      if (isTerminalClosed(id: widget.terminalId)) {
+        widget.onClosed?.call();
+      }
+      return;
+    }
+
+    final newFrame = getTerminalFrame(id: widget.terminalId);
+    if (newFrame != null) {
+      if (newFrame.isClosed) {
+        widget.onClosed?.call();
+        return;
+      }
+      setState(() {
+        _frame = newFrame;
+      });
+    }
+  }
+
+  // Fetches latest buffered output when tab becomes active.
+  void _fetchLatestFrame() {
+    if (!mounted) return;
+    final newFrame = getTerminalFrame(id: widget.terminalId);
+    if (newFrame != null && mounted) {
+      if (newFrame.isClosed) {
+        widget.onClosed?.call();
+        return;
+      }
+      setState(() {
+        _frame = newFrame;
+      });
+    }
+  }
+
   void _handleFocusChange() {
     if (mounted) {
       setState(() {});
@@ -136,8 +151,9 @@ class _TerminalViewState extends State<TerminalView>
   }
 
   void _handleTabChange() {
-    if (widget.tabController.index == widget.index) {
+    if (_isActive) {
       _activateTerminal();
+      _fetchLatestFrame();
     }
   }
 

@@ -37,7 +37,8 @@ class MockRustLibApi implements RustLibApi {
   Future<void> crateApiSimpleInitApp() async {}
 
   @override
-  bool crateApiSimpleIsTerminalClosed({required int id}) => false;
+  bool crateApiSimpleIsTerminalClosed({required int id}) =>
+      frames[id]?.isClosed ?? currentFrame?.isClosed ?? false;
 
   @override
   void crateApiSimplePasteTerminal({required int id, required String input}) {}
@@ -410,6 +411,87 @@ void main() {
 
       expect(find.text('Tab 1'), findsOneWidget);
       expect(find.text('Tab 2'), findsNothing);
+    });
+
+    testWidgets('Inactive TerminalView does not update frame until tab becomes active', (
+      WidgetTester tester,
+    ) async {
+      final settings = AppSettings(
+        fontSize: 14.0,
+        fontFamily: 'monospace',
+      );
+      final tabController = TabController(length: 2, vsync: const TestVSync(), initialIndex: 0);
+
+      final initialFrame = TerminalFrame(
+        rows: 10,
+        cols: 20,
+        lines: List.generate(10, (i) => 'Initial $i           '),
+        fgColors: Uint32List(200),
+        bgColors: Uint32List(200),
+        flags: Uint16List(200),
+        cursorX: 0,
+        cursorY: 0,
+        isClosed: false,
+      );
+
+      final updatedFrame = TerminalFrame(
+        rows: 10,
+        cols: 20,
+        lines: List.generate(10, (i) => 'Updated $i           '),
+        fgColors: Uint32List(200),
+        bgColors: Uint32List(200),
+        flags: Uint16List(200),
+        cursorX: 0,
+        cursorY: 0,
+        isClosed: false,
+      );
+
+      mockApi.frames[2] = initialFrame;
+
+      // Mount Tab 2 with index = 1 (inactive, tabController.index == 0)
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalView(
+              terminalId: 2,
+              settings: settings,
+              tabController: tabController,
+              index: 1,
+              terminalStream: mockApi.streamController.stream,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Update mock frame in backend
+      mockApi.frames[2] = updatedFrame;
+
+      // Stream notification for terminalId 2 while tab is inactive
+      mockApi.streamController.add(2);
+      await tester.pump();
+
+      // State is NOT updated while inactive
+      expect(find.byWidgetPredicate((widget) {
+        if (widget is CustomPaint && widget.painter is TerminalPainter) {
+          final painter = widget.painter as TerminalPainter;
+          return painter.frame.lines.first.startsWith('Initial');
+        }
+        return false;
+      }), findsOneWidget);
+
+      // Now switch tab to active
+      tabController.index = 1;
+      await tester.pump();
+
+      // Frame catches up immediately on active switch
+      expect(find.byWidgetPredicate((widget) {
+        if (widget is CustomPaint && widget.painter is TerminalPainter) {
+          final painter = widget.painter as TerminalPainter;
+          return painter.frame.lines.first.startsWith('Updated');
+        }
+        return false;
+      }), findsOneWidget);
     });
   });
 }

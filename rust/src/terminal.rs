@@ -51,8 +51,30 @@ pub struct FlutterTerminal {
     child_pid: Option<i32>,
 }
 
+#[cfg(unix)]
+extern "C" {
+    // Standard POSIX kill(2) syscall provided by the system C runtime (already linked by Rust std).
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+#[cfg(unix)]
+const SIGKILL: i32 = 9;
+
 impl Drop for FlutterTerminal {
     fn drop(&mut self) {
+        // Kill process group (-pid) so background jobs release slave PTY, unblocking reader thread.
+        #[cfg(unix)]
+        if let Some(pid) = self.child_pid {
+            unsafe {
+                kill(-pid, SIGKILL);
+            }
+        }
+
+        // Close master PTY and writer to force immediate EOF/EIO on reader thread.
+        let _ = self.master_pty.write().take();
+        let _ = self.writer.write().take();
+
+        // Reap direct child process to prevent zombie (<defunct>) processes.
         if let Some(mut child) = self.child.write().take() {
             let _ = child.0.kill();
             let _ = child.0.wait();
@@ -174,6 +196,7 @@ impl FlutterTerminal {
             cmd.cwd(dir);
         }
         let child = pair.slave.spawn_command(cmd).ok()?;
+        // Track process group leader PID for process cleanup on tab drop.
         let child_pid = pair.master.process_group_leader();
 
         let reader = pair.master.try_clone_reader().ok()?;
@@ -292,6 +315,12 @@ impl FlutterTerminal {
                 let is_spacer = cell.flags().contains(Flags::WIDE_CHAR_SPACER);
                 if !is_spacer {
                     line_str.push(cell.c);
+                    // Append zero-width characters (combining accents/diacritics) to preserve grapheme clusters.
+                    if let Some(zerowidth) = cell.zerowidth() {
+                        for &zw in zerowidth {
+                            line_str.push(zw);
+                        }
+                    }
                 }
 
                 fg_colors.push(resolve_color(cell.fg));
@@ -480,5 +509,24 @@ mod tests {
         let frame = term.get_frame();
         assert!(frame.is_some());
         assert!(frame.unwrap().is_closed);
+    }
+
+    #[test]
+    fn test_combining_characters() {
+        let term = FlutterTerminal::new(24, 80, None).expect("Terminal should create");
+        {
+            let mut term_lock = term.term.write();
+            let mut processor = ansi::Processor::<NoopTimeout>::new();
+            // "e" + combining acute accent U+0301 (UTF-8: 0xCC, 0x81)
+            processor.advance(&mut *term_lock, "e\u{0301}".as_bytes());
+        }
+        term.dirty.store(true, Ordering::SeqCst);
+        let frame = term.get_frame().expect("Frame should exist");
+        let first_line = &frame.lines[0];
+        assert!(
+            first_line.starts_with("e\u{0301}"),
+            "Line should contain combining acute accent, got: {:?}",
+            first_line
+        );
     }
 }
