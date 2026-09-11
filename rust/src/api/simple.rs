@@ -123,6 +123,18 @@ pub fn is_terminal_closed(id: u32) -> bool {
 }
 
 #[flutter_rust_bridge::frb(sync)]
+pub fn is_terminal_app_cursor(id: u32) -> bool {
+    let lock = terminals().read();
+    lock.get(&id).map(|t| t.is_app_cursor()).unwrap_or(false)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn is_terminal_alt_screen(id: u32) -> bool {
+    let lock = terminals().read();
+    lock.get(&id).map(|t| t.is_alt_screen()).unwrap_or(false)
+}
+
+#[flutter_rust_bridge::frb(sync)]
 pub fn send_input(id: u32, input: String) {
     let lock = terminals().read();
     if let Some(t) = lock.get(&id) {

@@ -391,16 +391,35 @@ impl FlutterTerminal {
     }
 
     pub fn send_key(&self, normal_seq: &str, app_seq: &str) {
-        let app_cursor = {
+        let is_app_mode = {
             let term = self.term.read();
-            term.mode()
-                .contains(alacritty_terminal::term::TermMode::APP_CURSOR)
+            let mode = term.mode();
+            mode.contains(alacritty_terminal::term::TermMode::APP_CURSOR)
+                || mode.contains(alacritty_terminal::term::TermMode::APP_KEYPAD)
         };
-        let seq = if app_cursor { app_seq } else { normal_seq };
+        let seq = if is_app_mode && !app_seq.is_empty() {
+            app_seq
+        } else {
+            normal_seq
+        };
         if let Some(writer) = self.writer.write().as_mut() {
             let _ = writer.0.write_all(seq.as_bytes());
             let _ = writer.0.flush();
         }
+    }
+
+    pub fn is_app_cursor(&self) -> bool {
+        self.term
+            .read()
+            .mode()
+            .contains(alacritty_terminal::term::TermMode::APP_CURSOR)
+    }
+
+    pub fn is_alt_screen(&self) -> bool {
+        self.term
+            .read()
+            .mode()
+            .contains(alacritty_terminal::term::TermMode::ALT_SCREEN)
     }
 
     pub fn cwd(&self) -> Option<String> {
@@ -509,6 +528,29 @@ mod tests {
         let frame = term.get_frame();
         assert!(frame.is_some());
         assert!(frame.unwrap().is_closed);
+    }
+
+    #[test]
+    fn test_terminal_modes_and_send_key() {
+        let term = FlutterTerminal::new(24, 80, None).expect("Terminal should create");
+        assert!(!term.is_app_cursor());
+        assert!(!term.is_alt_screen());
+
+        // Simulate application turning on APP_CURSOR via DECCKM sequence \x1b[?1h
+        {
+            let mut term_lock = term.term.write();
+            let mut processor = ansi::Processor::<NoopTimeout>::new();
+            processor.advance(&mut *term_lock, b"\x1b[?1h");
+        }
+        assert!(term.is_app_cursor());
+
+        // Simulate application turning off APP_CURSOR via DECCKM sequence \x1b[?1l
+        {
+            let mut term_lock = term.term.write();
+            let mut processor = ansi::Processor::<NoopTimeout>::new();
+            processor.advance(&mut *term_lock, b"\x1b[?1l");
+        }
+        assert!(!term.is_app_cursor());
     }
 
     #[test]

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mechanix_terminal/core/utils/constants.dart';
 import 'package:mechanix_terminal/features/data/settings.dart';
 import 'package:mechanix_terminal/features/screen/terminal_tabs_screen.dart';
 import 'package:mechanix_terminal/features/widgets/terminal_painter.dart';
@@ -52,11 +54,31 @@ class MockRustLibApi implements RustLibApi {
   @override
   void crateApiSimpleScrollTerminal({required int id, required int lines}) {}
 
-  @override
-  void crateApiSimpleSendInput({required int id, required String input}) {}
+  bool isAppCursorValue = false;
+  bool isAltScreenValue = false;
+  final List<({int id, String input})> sentInputs = [];
+  final List<({int id, String normalSeq, String appSeq})> sentKeys = [];
+
+  void clearRecords() {
+    sentInputs.clear();
+    sentKeys.clear();
+  }
 
   @override
-  void crateApiSimpleSendKey({required int id, required String normalSeq, required String appSeq}) {}
+  bool crateApiSimpleIsTerminalAppCursor({required int id}) => isAppCursorValue;
+
+  @override
+  bool crateApiSimpleIsTerminalAltScreen({required int id}) => isAltScreenValue;
+
+  @override
+  void crateApiSimpleSendInput({required int id, required String input}) {
+    sentInputs.add((id: id, input: input));
+  }
+
+  @override
+  void crateApiSimpleSendKey({required int id, required String normalSeq, required String appSeq}) {
+    sentKeys.add((id: id, normalSeq: normalSeq, appSeq: appSeq));
+  }
 
   @override
   void crateApiSimpleSetActiveTerminal({required int id}) {}
@@ -492,6 +514,328 @@ void main() {
         }
         return false;
       }), findsOneWidget);
+    });
+  });
+
+  group('Terminal Keyboard Input Resolution Tests', () {
+    test('Unmodified cursor and home/end keys resolve to TerminalAppCursorInput with normal and app sequences', () {
+      final up = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.arrowUp,
+        logicalKey: LogicalKeyboardKey.arrowUp,
+        timeStamp: Duration.zero,
+      ));
+      expect(up, isA<TerminalAppCursorInput>());
+      final upResult = up as TerminalAppCursorInput;
+      expect(upResult.normalSeq, '\x1b[A');
+      expect(upResult.appSeq, '\x1bOA');
+
+      final down = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.arrowDown,
+        logicalKey: LogicalKeyboardKey.arrowDown,
+        timeStamp: Duration.zero,
+      )) as TerminalAppCursorInput;
+      expect(down.normalSeq, '\x1b[B');
+      expect(down.appSeq, '\x1bOB');
+
+      final right = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.arrowRight,
+        logicalKey: LogicalKeyboardKey.arrowRight,
+        timeStamp: Duration.zero,
+      )) as TerminalAppCursorInput;
+      expect(right.normalSeq, '\x1b[C');
+      expect(right.appSeq, '\x1bOC');
+
+      final left = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.arrowLeft,
+        logicalKey: LogicalKeyboardKey.arrowLeft,
+        timeStamp: Duration.zero,
+      )) as TerminalAppCursorInput;
+      expect(left.normalSeq, '\x1b[D');
+      expect(left.appSeq, '\x1bOD');
+
+      final home = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.home,
+        logicalKey: LogicalKeyboardKey.home,
+        timeStamp: Duration.zero,
+      )) as TerminalAppCursorInput;
+      expect(home.normalSeq, '\x1b[H');
+      expect(home.appSeq, '\x1bOH');
+
+      final end = resolveTerminalInput(const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.end,
+        logicalKey: LogicalKeyboardKey.end,
+        timeStamp: Duration.zero,
+      )) as TerminalAppCursorInput;
+      expect(end.normalSeq, '\x1b[F');
+      expect(end.appSeq, '\x1bOF');
+    });
+
+    test('Modified arrow keys resolve to standard xterm modifier sequences', () {
+      // Test Shift+ArrowUp (mod = 2)
+      final shiftUp = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.arrowUp,
+          logicalKey: LogicalKeyboardKey.arrowUp,
+          timeStamp: Duration.zero,
+        ),
+        isShift: true,
+      );
+      expect(shiftUp, isA<TerminalNormalInput>());
+      expect((shiftUp as TerminalNormalInput).text, '\x1b[1;2A');
+
+      // Test Shift+Tab (BackTab)
+      final shiftTab = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.tab,
+          logicalKey: LogicalKeyboardKey.tab,
+          timeStamp: Duration.zero,
+        ),
+        isShift: true,
+      );
+      expect((shiftTab as TerminalNormalInput).text, '\x1b[Z');
+    });
+
+    test('Critical Ctrl shortcuts for nano, vim, htop, less resolve correctly', () {
+      // Ctrl+O (Nano Save)
+      final ctrlO = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyO,
+          logicalKey: LogicalKeyboardKey.keyO,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlO as TerminalNormalInput).text, '\x0f');
+
+      // Ctrl+X (Nano Exit)
+      final ctrlX = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyX,
+          logicalKey: LogicalKeyboardKey.keyX,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlX as TerminalNormalInput).text, '\x18');
+
+      // Ctrl+V (Vim Visual Block)
+      final ctrlV = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyV,
+          logicalKey: LogicalKeyboardKey.keyV,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlV as TerminalNormalInput).text, '\x16');
+
+      // Ctrl+[ (Vim Escape)
+      final ctrlEsc = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.bracketLeft,
+          logicalKey: LogicalKeyboardKey.bracketLeft,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlEsc as TerminalNormalInput).text, '\x1b');
+
+      // Ctrl+C (SIGINT)
+      final ctrlC = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyC,
+          logicalKey: LogicalKeyboardKey.keyC,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlC as TerminalNormalInput).text, '\x03');
+
+      // Ctrl+D (EOF)
+      final ctrlD = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyD,
+          logicalKey: LogicalKeyboardKey.keyD,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlD as TerminalNormalInput).text, '\x04');
+
+      // Ctrl+Z (SIGTSTP)
+      final ctrlZ = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyZ,
+          logicalKey: LogicalKeyboardKey.keyZ,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlZ as TerminalNormalInput).text, '\x1a');
+
+      // Ctrl+L (Clear screen / redraw)
+      final ctrlL = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyL,
+          logicalKey: LogicalKeyboardKey.keyL,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlL as TerminalNormalInput).text, '\x0c');
+
+      // Ctrl+ArrowUp (mod = 5)
+      final ctrlUp = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.arrowUp,
+          logicalKey: LogicalKeyboardKey.arrowUp,
+          timeStamp: Duration.zero,
+        ),
+        isCtrl: true,
+      );
+      expect((ctrlUp as TerminalNormalInput).text, '\x1b[1;5A');
+    });
+
+    test('Standard function keys and navigation keys resolve correctly', () {
+      // F1..F4
+      expect(
+        (resolveTerminalInput(const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.f1,
+          logicalKey: LogicalKeyboardKey.f1,
+          timeStamp: Duration.zero,
+        )) as TerminalNormalInput).text,
+        '\x1bOP',
+      );
+      // F10 (htop quit)
+      expect(
+        (resolveTerminalInput(const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.f10,
+          logicalKey: LogicalKeyboardKey.f10,
+          timeStamp: Duration.zero,
+        )) as TerminalNormalInput).text,
+        '\x1b[21~',
+      );
+      // Enter and Numpad Enter
+      expect(
+        (resolveTerminalInput(const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.enter,
+          logicalKey: LogicalKeyboardKey.enter,
+          timeStamp: Duration.zero,
+        )) as TerminalNormalInput).text,
+        '\r',
+      );
+      expect(
+        (resolveTerminalInput(const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.numpadEnter,
+          logicalKey: LogicalKeyboardKey.numpadEnter,
+          timeStamp: Duration.zero,
+        )) as TerminalNormalInput).text,
+        '\r',
+      );
+      // Backspace
+      expect(
+        (resolveTerminalInput(const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.backspace,
+          logicalKey: LogicalKeyboardKey.backspace,
+          timeStamp: Duration.zero,
+        )) as TerminalNormalInput).text,
+        '\x7f',
+      );
+    });
+
+    test('Alt combinations prefix escape correctly', () {
+      // Alt+X
+      final altX = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyX,
+          logicalKey: LogicalKeyboardKey.keyX,
+          timeStamp: Duration.zero,
+        ),
+        isAlt: true,
+      );
+      expect((altX as TerminalNormalInput).text, '\x1bx');
+
+      // Alt+Enter
+      final altEnter = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.enter,
+          logicalKey: LogicalKeyboardKey.enter,
+          timeStamp: Duration.zero,
+        ),
+        isAlt: true,
+      );
+      expect((altEnter as TerminalNormalInput).text, '\x1b\r');
+
+      // Alt+Backspace
+      final altBk = resolveTerminalInput(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.backspace,
+          logicalKey: LogicalKeyboardKey.backspace,
+          timeStamp: Duration.zero,
+        ),
+        isAlt: true,
+      );
+      expect((altBk as TerminalNormalInput).text, '\x1b\x7f');
+    });
+  });
+
+  group('TerminalView Key Dispatch Widget Tests', () {
+    testWidgets('TerminalView dispatches ArrowUp via sendKey with both normal and app sequences', (tester) async {
+      mockApi.clearRecords();
+      final tabController = TabController(length: 1, vsync: const TestVSync());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalView(
+              terminalId: 1,
+              index: 0,
+              tabController: tabController,
+              settings: AppSettings(fontSize: 14.0, fontFamily: 'monospace'),
+              terminalStream: mockApi.streamController.stream,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+
+      expect(mockApi.sentKeys.length, 1);
+      expect(mockApi.sentKeys.first.normalSeq, '\x1b[A');
+      expect(mockApi.sentKeys.first.appSeq, '\x1bOA');
+      expect(mockApi.sentKeys.first.id, 1);
+    });
+
+    testWidgets('TerminalView dispatches F10 and Enter via sendInput', (tester) async {
+      mockApi.clearRecords();
+      final tabController = TabController(length: 1, vsync: const TestVSync());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalView(
+              terminalId: 1,
+              index: 0,
+              tabController: tabController,
+              settings: AppSettings(fontSize: 14.0, fontFamily: 'monospace'),
+              terminalStream: mockApi.streamController.stream,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+      await tester.pump();
+      expect(mockApi.sentInputs.length, 1);
+      expect(mockApi.sentInputs.first.input, '\x1b[21~');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(mockApi.sentInputs.length, 2);
+      expect(mockApi.sentInputs.last.input, '\r');
     });
   });
 }

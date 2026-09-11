@@ -5,7 +5,6 @@
 
 import '../frb_generated.dart';
 import '../terminal.dart';
-
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `active_id`, `terminals`
@@ -32,6 +31,12 @@ TerminalFrame? getTerminalFrame({required int id}) =>
 
 bool isTerminalClosed({required int id}) =>
     RustLib.instance.api.crateApiSimpleIsTerminalClosed(id: id);
+
+bool isTerminalAppCursor({required int id}) =>
+    RustLib.instance.api.crateApiSimpleIsTerminalAppCursor(id: id);
+
+bool isTerminalAltScreen({required int id}) =>
+    RustLib.instance.api.crateApiSimpleIsTerminalAltScreen(id: id);
 
 void sendInput({required int id, required String input}) =>
     RustLib.instance.api.crateApiSimpleSendInput(id: id, input: input);

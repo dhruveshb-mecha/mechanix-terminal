@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2100640143;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 198659320;
 
 // Section: executor
 
@@ -210,6 +210,66 @@ fn wire__crate__api__simple__init_app_impl(
                     std::result::Result::Ok(output_ok)
                 })())
             }
+        },
+    )
+}
+fn wire__crate__api__simple__is_terminal_alt_screen_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "is_terminal_alt_screen",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::simple::is_terminal_alt_screen(api_id))?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__simple__is_terminal_app_cursor_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "is_terminal_app_cursor",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::simple::is_terminal_app_cursor(api_id))?;
+                std::result::Result::Ok(output_ok)
+            })())
         },
     )
 }
@@ -665,14 +725,16 @@ fn pde_ffi_dispatcher_sync_impl(
         1 => wire__crate__api__simple__add_terminal_impl(ptr, rust_vec_len, data_len),
         3 => wire__crate__api__simple__get_terminal_cwd_impl(ptr, rust_vec_len, data_len),
         4 => wire__crate__api__simple__get_terminal_frame_impl(ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__simple__is_terminal_closed_impl(ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__simple__paste_terminal_impl(ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__simple__remove_terminal_impl(ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__simple__resize_terminal_impl(ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__simple__scroll_terminal_impl(ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__simple__send_input_impl(ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__simple__send_key_impl(ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__simple__set_active_terminal_impl(ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__simple__is_terminal_alt_screen_impl(ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__simple__is_terminal_app_cursor_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__simple__is_terminal_closed_impl(ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__simple__paste_terminal_impl(ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__simple__remove_terminal_impl(ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__simple__resize_terminal_impl(ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__simple__scroll_terminal_impl(ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__simple__send_input_impl(ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__simple__send_key_impl(ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__simple__set_active_terminal_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

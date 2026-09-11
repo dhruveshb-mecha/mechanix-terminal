@@ -169,58 +169,6 @@ class _TerminalViewState extends State<TerminalView>
     }
   }
 
-  /// Converts a Flutter KeyEvent into terminal strings or history sequences.
-  String? _keyEventToTerminalInput(KeyEvent event) {
-    final key = event.logicalKey;
-    final isShift = HardwareKeyboard.instance.isShiftPressed;
-    final isCtrl = HardwareKeyboard.instance.isControlPressed;
-    final isAlt = HardwareKeyboard.instance.isAltPressed;
-
-    // ── Ctrl shortcuts ────────────────────────────────────────────────────────
-    if (isCtrl && !isAlt) {
-      final value = ctrlMappings[key];
-      if (value != null) return value;
-    }
-
-    // ── Alt (Meta) shortcuts ──────────────────────────────────────────────────
-    if (isAlt && !isCtrl) {
-      if (key == LogicalKeyboardKey.digit0) {
-        return '\x1b0';
-      }
-
-      final digit1 = LogicalKeyboardKey.digit1.keyId;
-      final digit9 = LogicalKeyboardKey.digit9.keyId;
-
-      if (key.keyId >= digit1 && key.keyId <= digit9) {
-        return '\x1b${key.keyId - digit1 + 1}';
-      }
-
-      final value = altMappings[key];
-      if (value != null) return value;
-    }
-
-    // ── Shift shortcuts ───────────────────────────────────────────────────────
-    if (isShift) {
-      final shiftValue = shiftMappings[key];
-      if (shiftValue != null) {
-        return shiftValue;
-      }
-    }
-
-    final defaultValue = defaultMappings[key];
-    if (defaultValue != null) {
-      return defaultValue;
-    }
-
-    if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      final character = event.character;
-      if (character != null && character.isNotEmpty) {
-        return character;
-      }
-    }
-
-    return null;
-  }
 
   // ── SELECTION HELPERS ──────────────────────────────────────────────────────
 
@@ -469,8 +417,8 @@ class _TerminalViewState extends State<TerminalView>
                 focusNode: _focusNode,
                 autofocus: true,
                 onKeyEvent: (FocusNode node, KeyEvent event) {
+                  final key = event.logicalKey;
                   if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                    final key = event.logicalKey;
                     final isAlt = HardwareKeyboard.instance.isAltPressed;
                     final isCtrl = HardwareKeyboard.instance.isControlPressed;
                     final isShift = HardwareKeyboard.instance.isShiftPressed;
@@ -533,6 +481,7 @@ class _TerminalViewState extends State<TerminalView>
                       return KeyEventResult.handled;
                     }
 
+                    // Only switch tabs with Alt+digit if multiple tabs exist
                     if (isAlt && !isCtrl && !isShift) {
                       final int? targetIndex = switch (key) {
                         LogicalKeyboardKey.digit1 => 0,
@@ -549,15 +498,27 @@ class _TerminalViewState extends State<TerminalView>
                       };
 
                       if (targetIndex != null &&
+                          widget.tabController.length > 1 &&
                           targetIndex < widget.tabController.length) {
                         widget.tabController.animateTo(targetIndex);
                         return KeyEventResult.handled;
                       }
                     }
 
-                    final input = _keyEventToTerminalInput(event);
-                    if (input != null) {
-                      sendInput(id: widget.terminalId, input: input);
+                    final inputResult = resolveTerminalInput(event);
+                    if (inputResult is TerminalAppCursorInput) {
+                      sendKey(
+                        id: widget.terminalId,
+                        normalSeq: inputResult.normalSeq,
+                        appSeq: inputResult.appSeq,
+                      );
+                      return KeyEventResult.handled;
+                    } else if (inputResult is TerminalNormalInput) {
+                      sendInput(id: widget.terminalId, input: inputResult.text);
+                      return KeyEventResult.handled;
+                    }
+                  } else if (event is KeyUpEvent) {
+                    if (key == LogicalKeyboardKey.tab) {
                       return KeyEventResult.handled;
                     }
                   }

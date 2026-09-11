@@ -20,7 +20,7 @@ class TermTheme {
   );
 }
 
-final fontFamilies = ['monospace', 'MesloLGS NF'];
+final fontFamilies = ['JetBrains mono', 'Cantarell'];
 
 final terminalThemes = [
   TermTheme(
@@ -188,61 +188,177 @@ final defaultLightThemePalette = Uint32List.fromList([
   0xBCC0CC,
 ]);
 
+class AppCursorKey {
+  final String normalSeq;
+  final String appSeq;
+  const AppCursorKey(this.normalSeq, this.appSeq);
+}
+
+final Map<LogicalKeyboardKey, AppCursorKey> appCursorKeys = {
+  LogicalKeyboardKey.arrowUp: const AppCursorKey('\x1b[A', '\x1bOA'),
+  LogicalKeyboardKey.arrowDown: const AppCursorKey('\x1b[B', '\x1bOB'),
+  LogicalKeyboardKey.arrowRight: const AppCursorKey('\x1b[C', '\x1bOC'),
+  LogicalKeyboardKey.arrowLeft: const AppCursorKey('\x1b[D', '\x1bOD'),
+  LogicalKeyboardKey.home: const AppCursorKey('\x1b[H', '\x1bOH'),
+  LogicalKeyboardKey.end: const AppCursorKey('\x1b[F', '\x1bOF'),
+};
+
+sealed class TerminalInputResult {
+  const TerminalInputResult();
+}
+
+class TerminalNormalInput extends TerminalInputResult {
+  final String text;
+  const TerminalNormalInput(this.text);
+}
+
+class TerminalAppCursorInput extends TerminalInputResult {
+  final String normalSeq;
+  final String appSeq;
+  const TerminalAppCursorInput(this.normalSeq, this.appSeq);
+}
+
 final Map<LogicalKeyboardKey, String> ctrlMappings = {
+  // All 26 letters A-Z (\x01 - \x1a)
+  LogicalKeyboardKey.keyA: '\x01',
+  LogicalKeyboardKey.keyB: '\x02',
   LogicalKeyboardKey.keyC: '\x03',
   LogicalKeyboardKey.keyD: '\x04',
-  LogicalKeyboardKey.keyZ: '\x1a',
-  LogicalKeyboardKey.keyL: '\x0c',
-  LogicalKeyboardKey.keyA: '\x01',
   LogicalKeyboardKey.keyE: '\x05',
+  LogicalKeyboardKey.keyF: '\x06',
+  LogicalKeyboardKey.keyG: '\x07',
+  LogicalKeyboardKey.keyH: '\x08',
+  LogicalKeyboardKey.keyI: '\x09',
+  LogicalKeyboardKey.keyJ: '\x0a',
   LogicalKeyboardKey.keyK: '\x0b',
-  LogicalKeyboardKey.keyU: '\x15',
-  LogicalKeyboardKey.keyW: '\x17',
+  LogicalKeyboardKey.keyL: '\x0c',
+  LogicalKeyboardKey.keyM: '\x0d',
+  LogicalKeyboardKey.keyN: '\x0e',
+  LogicalKeyboardKey.keyO: '\x0f',
+  LogicalKeyboardKey.keyP: '\x10',
+  LogicalKeyboardKey.keyQ: '\x11',
   LogicalKeyboardKey.keyR: '\x12',
   LogicalKeyboardKey.keyS: '\x13',
-  LogicalKeyboardKey.keyQ: '\x11',
-  LogicalKeyboardKey.keyP: '\x10',
-  LogicalKeyboardKey.keyN: '\x0e',
-  LogicalKeyboardKey.keyB: '\x02',
-  LogicalKeyboardKey.keyF: '\x06',
   LogicalKeyboardKey.keyT: '\x14',
+  LogicalKeyboardKey.keyU: '\x15',
+  LogicalKeyboardKey.keyV: '\x16',
+  LogicalKeyboardKey.keyW: '\x17',
+  LogicalKeyboardKey.keyX: '\x18',
   LogicalKeyboardKey.keyY: '\x19',
-  LogicalKeyboardKey.backslash: '\x1c',
-  LogicalKeyboardKey.bracketRight: '\x1d',
+  LogicalKeyboardKey.keyZ: '\x1a',
+
+  // Control punctuation and symbols
   LogicalKeyboardKey.space: '\x00',
-  LogicalKeyboardKey.arrowLeft: '\x1b[1;5D',
-  LogicalKeyboardKey.arrowRight: '\x1b[1;5C',
+  LogicalKeyboardKey.digit2: '\x00',
+  LogicalKeyboardKey.bracketLeft: '\x1b',
+  LogicalKeyboardKey.digit3: '\x1b',
+  LogicalKeyboardKey.backslash: '\x1c',
+  LogicalKeyboardKey.digit4: '\x1c',
+  LogicalKeyboardKey.bracketRight: '\x1d',
+  LogicalKeyboardKey.digit5: '\x1d',
+  LogicalKeyboardKey.digit6: '\x1e',
+  LogicalKeyboardKey.slash: '\x1f',
+  LogicalKeyboardKey.minus: '\x1f',
+  LogicalKeyboardKey.digit7: '\x1f',
+  LogicalKeyboardKey.digit8: '\x7f',
+  LogicalKeyboardKey.backspace: '\x08',
+  LogicalKeyboardKey.tab: '\t',
+
+  // Navigation with Ctrl (modifier 5)
   LogicalKeyboardKey.arrowUp: '\x1b[1;5A',
   LogicalKeyboardKey.arrowDown: '\x1b[1;5B',
+  LogicalKeyboardKey.arrowRight: '\x1b[1;5C',
+  LogicalKeyboardKey.arrowLeft: '\x1b[1;5D',
   LogicalKeyboardKey.home: '\x1b[1;5H',
   LogicalKeyboardKey.end: '\x1b[1;5F',
+  LogicalKeyboardKey.insert: '\x1b[2;5~',
   LogicalKeyboardKey.delete: '\x1b[3;5~',
+  LogicalKeyboardKey.pageUp: '\x1b[5;5~',
+  LogicalKeyboardKey.pageDown: '\x1b[6;5~',
+
+  // Function keys with Ctrl (modifier 5)
+  LogicalKeyboardKey.f1: '\x1b[1;5P',
+  LogicalKeyboardKey.f2: '\x1b[1;5Q',
+  LogicalKeyboardKey.f3: '\x1b[1;5R',
+  LogicalKeyboardKey.f4: '\x1b[1;5S',
+  LogicalKeyboardKey.f5: '\x1b[15;5~',
+  LogicalKeyboardKey.f6: '\x1b[17;5~',
+  LogicalKeyboardKey.f7: '\x1b[18;5~',
+  LogicalKeyboardKey.f8: '\x1b[19;5~',
+  LogicalKeyboardKey.f9: '\x1b[20;5~',
+  LogicalKeyboardKey.f10: '\x1b[21;5~',
+  LogicalKeyboardKey.f11: '\x1b[23;5~',
+  LogicalKeyboardKey.f12: '\x1b[24;5~',
 };
 
 final Map<LogicalKeyboardKey, String> altMappings = {
-  LogicalKeyboardKey.keyB: '\x1bb',
-  LogicalKeyboardKey.keyF: '\x1bf',
-  LogicalKeyboardKey.keyD: '\x1bd',
-  LogicalKeyboardKey.backspace: '\x1b\x7f',
-  LogicalKeyboardKey.keyU: '\x1bu',
-  LogicalKeyboardKey.keyL: '\x1bl',
-  LogicalKeyboardKey.keyC: '\x1bc',
-  LogicalKeyboardKey.keyR: '\x1br',
-  LogicalKeyboardKey.period: '\x1b.',
+  // Navigation with Alt (modifier 3)
+  LogicalKeyboardKey.arrowUp: '\x1b[1;3A',
+  LogicalKeyboardKey.arrowDown: '\x1b[1;3B',
   LogicalKeyboardKey.arrowLeft: '\x1b[1;3D',
   LogicalKeyboardKey.arrowRight: '\x1b[1;3C',
+  LogicalKeyboardKey.home: '\x1b[1;3H',
+  LogicalKeyboardKey.end: '\x1b[1;3F',
+  LogicalKeyboardKey.insert: '\x1b[2;3~',
+  LogicalKeyboardKey.delete: '\x1b[3;3~',
+  LogicalKeyboardKey.pageUp: '\x1b[5;3~',
+  LogicalKeyboardKey.pageDown: '\x1b[6;3~',
+
+  // Special keys with Alt
+  LogicalKeyboardKey.enter: '\x1b\r',
+  LogicalKeyboardKey.numpadEnter: '\x1b\r',
+  LogicalKeyboardKey.backspace: '\x1b\x7f',
+  LogicalKeyboardKey.tab: '\x1b\t',
+  LogicalKeyboardKey.escape: '\x1b\x1b',
+  LogicalKeyboardKey.period: '\x1b.',
+
+  // Function keys with Alt (modifier 3)
+  LogicalKeyboardKey.f1: '\x1b[1;3P',
+  LogicalKeyboardKey.f2: '\x1b[1;3Q',
+  LogicalKeyboardKey.f3: '\x1b[1;3R',
+  LogicalKeyboardKey.f4: '\x1b[1;3S',
+  LogicalKeyboardKey.f5: '\x1b[15;3~',
+  LogicalKeyboardKey.f6: '\x1b[17;3~',
+  LogicalKeyboardKey.f7: '\x1b[18;3~',
+  LogicalKeyboardKey.f8: '\x1b[19;3~',
+  LogicalKeyboardKey.f9: '\x1b[20;3~',
+  LogicalKeyboardKey.f10: '\x1b[21;3~',
+  LogicalKeyboardKey.f11: '\x1b[23;3~',
+  LogicalKeyboardKey.f12: '\x1b[24;3~',
 };
 
 final Map<LogicalKeyboardKey, String> shiftMappings = {
+  // Navigation with Shift (modifier 2)
   LogicalKeyboardKey.arrowUp: '\x1b[1;2A',
   LogicalKeyboardKey.arrowDown: '\x1b[1;2B',
+  LogicalKeyboardKey.arrowLeft: '\x1b[1;2D',
+  LogicalKeyboardKey.arrowRight: '\x1b[1;2C',
+  LogicalKeyboardKey.home: '\x1b[1;2H',
+  LogicalKeyboardKey.end: '\x1b[1;2F',
+  LogicalKeyboardKey.insert: '\x1b[2;2~',
+  LogicalKeyboardKey.delete: '\x1b[3;2~',
   LogicalKeyboardKey.pageUp: '\x1b[5;2~',
   LogicalKeyboardKey.pageDown: '\x1b[6;2~',
   LogicalKeyboardKey.tab: '\x1b[Z',
+
+  // Function keys with Shift (modifier 2)
+  LogicalKeyboardKey.f1: '\x1b[1;2P',
+  LogicalKeyboardKey.f2: '\x1b[1;2Q',
+  LogicalKeyboardKey.f3: '\x1b[1;2R',
+  LogicalKeyboardKey.f4: '\x1b[1;2S',
+  LogicalKeyboardKey.f5: '\x1b[15;2~',
+  LogicalKeyboardKey.f6: '\x1b[17;2~',
+  LogicalKeyboardKey.f7: '\x1b[18;2~',
+  LogicalKeyboardKey.f8: '\x1b[19;2~',
+  LogicalKeyboardKey.f9: '\x1b[20;2~',
+  LogicalKeyboardKey.f10: '\x1b[21;2~',
+  LogicalKeyboardKey.f11: '\x1b[23;2~',
+  LogicalKeyboardKey.f12: '\x1b[24;2~',
 };
 
 final Map<LogicalKeyboardKey, String> defaultMappings = {
   LogicalKeyboardKey.enter: '\r',
+  LogicalKeyboardKey.numpadEnter: '\r',
   LogicalKeyboardKey.backspace: '\x7f',
   LogicalKeyboardKey.tab: '\t',
   LogicalKeyboardKey.escape: '\x1b',
@@ -268,4 +384,171 @@ final Map<LogicalKeyboardKey, String> defaultMappings = {
   LogicalKeyboardKey.f10: '\x1b[21~',
   LogicalKeyboardKey.f11: '\x1b[23~',
   LogicalKeyboardKey.f12: '\x1b[24~',
+  LogicalKeyboardKey.numpadAdd: '+',
+  LogicalKeyboardKey.numpadSubtract: '-',
+  LogicalKeyboardKey.numpadMultiply: '*',
+  LogicalKeyboardKey.numpadDivide: '/',
+  LogicalKeyboardKey.numpadDecimal: '.',
 };
+
+String? _getModifiedSpecialKey(LogicalKeyboardKey key, int mod) {
+  // Arrow keys
+  if (key == LogicalKeyboardKey.arrowUp) return '\x1b[1;${mod}A';
+  if (key == LogicalKeyboardKey.arrowDown) return '\x1b[1;${mod}B';
+  if (key == LogicalKeyboardKey.arrowRight) return '\x1b[1;${mod}C';
+  if (key == LogicalKeyboardKey.arrowLeft) return '\x1b[1;${mod}D';
+
+  // Home / End
+  if (key == LogicalKeyboardKey.home) return '\x1b[1;${mod}H';
+  if (key == LogicalKeyboardKey.end) return '\x1b[1;${mod}F';
+
+  // Insert, Delete, PageUp, PageDown
+  if (key == LogicalKeyboardKey.insert) return '\x1b[2;$mod~';
+  if (key == LogicalKeyboardKey.delete) return '\x1b[3;$mod~';
+  if (key == LogicalKeyboardKey.pageUp) return '\x1b[5;$mod~';
+  if (key == LogicalKeyboardKey.pageDown) return '\x1b[6;$mod~';
+
+  // Function keys F1-F4
+  if (key == LogicalKeyboardKey.f1) return '\x1b[1;${mod}P';
+  if (key == LogicalKeyboardKey.f2) return '\x1b[1;${mod}Q';
+  if (key == LogicalKeyboardKey.f3) return '\x1b[1;${mod}R';
+  if (key == LogicalKeyboardKey.f4) return '\x1b[1;${mod}S';
+
+  // Function keys F5-F12
+  if (key == LogicalKeyboardKey.f5) return '\x1b[15;$mod~';
+  if (key == LogicalKeyboardKey.f6) return '\x1b[17;$mod~';
+  if (key == LogicalKeyboardKey.f7) return '\x1b[18;$mod~';
+  if (key == LogicalKeyboardKey.f8) return '\x1b[19;$mod~';
+  if (key == LogicalKeyboardKey.f9) return '\x1b[20;$mod~';
+  if (key == LogicalKeyboardKey.f10) return '\x1b[21;$mod~';
+  if (key == LogicalKeyboardKey.f11) return '\x1b[23;$mod~';
+  if (key == LogicalKeyboardKey.f12) return '\x1b[24;$mod~';
+
+  return null;
+}
+
+TerminalInputResult? resolveTerminalInput(
+  KeyEvent event, {
+  bool? isCtrl,
+  bool? isAlt,
+  bool? isShift,
+}) {
+  final key = event.logicalKey;
+  final ctrl = isCtrl ?? HardwareKeyboard.instance.isControlPressed;
+  final alt = isAlt ?? HardwareKeyboard.instance.isAltPressed;
+  final shift = isShift ?? HardwareKeyboard.instance.isShiftPressed;
+
+  final int mod = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) + (ctrl ? 4 : 0);
+
+  // 1. Unmodified Application Cursor Key candidates (mod == 1)
+  if (mod == 1) {
+    final appCursor = appCursorKeys[key];
+    if (appCursor != null) {
+      return TerminalAppCursorInput(appCursor.normalSeq, appCursor.appSeq);
+    }
+  }
+
+  // 2. Special navigation & function keys with any modifier (mod >= 2)
+  if (mod > 1) {
+    final modSeq = _getModifiedSpecialKey(key, mod);
+    if (modSeq != null) {
+      return TerminalNormalInput(modSeq);
+    }
+  }
+
+  // 3. Shift+Tab (BackTab)
+  if (shift && !ctrl && !alt && key == LogicalKeyboardKey.tab) {
+    return const TerminalNormalInput('\x1b[Z');
+  }
+
+  // 4. Ctrl shortcuts (Ctrl alone, or Ctrl+Shift when not copy/paste)
+  if (ctrl && !alt) {
+    // Letters A-Z (\x01 - \x1a)
+    if (key.keyId >= LogicalKeyboardKey.keyA.keyId &&
+        key.keyId <= LogicalKeyboardKey.keyZ.keyId) {
+      final code = key.keyId - LogicalKeyboardKey.keyA.keyId + 1;
+      return TerminalNormalInput(String.fromCharCode(code));
+    }
+    final ctrlVal = ctrlMappings[key];
+    if (ctrlVal != null) {
+      return TerminalNormalInput(ctrlVal);
+    }
+  }
+
+  // 5. Alt + Ctrl shortcuts (Ctrl+Alt combinations)
+  if (ctrl && alt) {
+    if (key.keyId >= LogicalKeyboardKey.keyA.keyId &&
+        key.keyId <= LogicalKeyboardKey.keyZ.keyId) {
+      final code = key.keyId - LogicalKeyboardKey.keyA.keyId + 1;
+      return TerminalNormalInput('\x1b${String.fromCharCode(code)}');
+    }
+    final ctrlVal = ctrlMappings[key];
+    if (ctrlVal != null) {
+      return TerminalNormalInput('\x1b$ctrlVal');
+    }
+  }
+
+  // 6. Alt shortcuts (Alt alone, or Alt+Shift)
+  if (alt && !ctrl) {
+    // Explicit altMappings (Enter, Backspace, Tab, Escape, etc.)
+    final altVal = altMappings[key];
+    if (altVal != null) {
+      return TerminalNormalInput(altVal);
+    }
+
+    // Digits
+    if (key == LogicalKeyboardKey.digit0) {
+      return const TerminalNormalInput('\x1b0');
+    }
+    if (key.keyId >= LogicalKeyboardKey.digit1.keyId &&
+        key.keyId <= LogicalKeyboardKey.digit9.keyId) {
+      final d = key.keyId - LogicalKeyboardKey.digit1.keyId + 1;
+      return TerminalNormalInput('\x1b$d');
+    }
+
+    // Letters A-Z
+    if (key.keyId >= LogicalKeyboardKey.keyA.keyId &&
+        key.keyId <= LogicalKeyboardKey.keyZ.keyId) {
+      final base = shift ? 65 : 97;
+      final ch = String.fromCharCode(
+        base + (key.keyId - LogicalKeyboardKey.keyA.keyId),
+      );
+      return TerminalNormalInput('\x1b$ch');
+    }
+
+    // Other printable characters
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      final character = event.character;
+      if (character != null && character.isNotEmpty) {
+        return TerminalNormalInput('\x1b$character');
+      }
+    }
+    if (key.keyLabel.length == 1) {
+      return TerminalNormalInput('\x1b${key.keyLabel}');
+    }
+  }
+
+  // 7. Shift-specific mappings when not handled above
+  if (shift) {
+    final shiftVal = shiftMappings[key];
+    if (shiftVal != null) {
+      return TerminalNormalInput(shiftVal);
+    }
+  }
+
+  // 8. Default unmodified keys
+  final defaultVal = defaultMappings[key];
+  if (defaultVal != null) {
+    return TerminalNormalInput(defaultVal);
+  }
+
+  // 9. Standard printable characters
+  if (event is KeyDownEvent || event is KeyRepeatEvent) {
+    final character = event.character;
+    if (character != null && character.isNotEmpty) {
+      return TerminalNormalInput(character);
+    }
+  }
+
+  return null;
+}
