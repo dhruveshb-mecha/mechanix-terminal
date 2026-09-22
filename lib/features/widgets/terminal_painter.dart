@@ -1,26 +1,8 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:mechanix_terminal/core/utils/constants.dart';
 import 'package:mechanix_terminal/src/rust/terminal.dart';
-
-const List<int> _defaultColorPalette = [
-  0x000000, // 0: Black
-  0xCC0000, // 1: Red
-  0x4E9A06, // 2: Green
-  0xC4A000, // 3: Yellow
-  0x3465A4, // 4: Blue
-  0x75507B, // 5: Magenta
-  0x06989A, // 6: Cyan
-  0xD3D7CF, // 7: White
-  0x555753, // 8: Bright Black
-  0xEF2929, // 9: Bright Red
-  0x8AE234, // 10: Bright Green
-  0xFCE94F, // 11: Bright Yellow
-  0x729FCF, // 12: Bright Blue
-  0xAD7FA8, // 13: Bright Magenta
-  0x34E2E2, // 14: Bright Cyan
-  0xEEEEEC, // 15: Bright White
-];
 
 const List<String> _defaultFontFamilyFallback = ['monospace'];
 
@@ -124,7 +106,7 @@ class TerminalPainter extends CustomPainter {
       if (colorPalette != null && idx < colorPalette!.length) {
         return Color(0xFF000000 | colorPalette![idx]);
       }
-      return Color(0xFF000000 | _defaultColorPalette[idx]);
+      return Color(0xFF000000 | defaultDarkThemePalette[idx]);
     });
 
     // ── 1. Draw Cell Backgrounds ───────────────────────────────────────────
