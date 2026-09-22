@@ -26,7 +26,8 @@ fn active_id() -> &'static RwLock<u32> {
 #[flutter_rust_bridge::frb(sync)]
 pub fn add_terminal(rows: u16, cols: u16, cwd: Option<String>) -> u32 {
     let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-    
+
+    // Inherit active tab's CWD if not provided; filter invalid/deleted dirs so shell spawn won't fail.
     let resolved_cwd = cwd.or_else(|| {
         let active = *active_id().read();
         if active != 0 {
@@ -35,18 +36,21 @@ pub fn add_terminal(rows: u16, cols: u16, cwd: Option<String>) -> u32 {
         } else {
             None
         }
-    });
+    }).filter(|dir| std::path::Path::new(dir).is_dir());
 
-    let terminal = FlutterTerminal::new(rows, cols, resolved_cwd);
-    let mut lock = terminals().write();
-    lock.insert(id, terminal);
+    if let Some(terminal) = FlutterTerminal::new(rows, cols, resolved_cwd) {
+        let mut lock = terminals().write();
+        lock.insert(id, terminal);
 
-    let mut active_lock = active_id().write();
-    if *active_lock == 0 {
-        *active_lock = id;
+        let mut active_lock = active_id().write();
+        if *active_lock == 0 {
+            *active_lock = id;
+        }
+
+        id
+    } else {
+        0
     }
-
-    id
 }
 
 #[flutter_rust_bridge::frb(sync)]
@@ -57,16 +61,24 @@ pub fn get_terminal_cwd(id: u32) -> Option<String> {
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn remove_terminal(id: u32) {
-    let mut lock = terminals().write();
-    lock.remove(&id);
+    // Release write-lock before dropping terminal to avoid blocking concurrent tab operations.
+    let terminal = {
+        let mut lock = terminals().write();
+        let term = lock.remove(&id);
 
-    let mut active_lock = active_id().write();
-    if *active_lock == id {
-        if let Some(&new_id) = lock.keys().next() {
-            *active_lock = new_id;
-        } else {
+        let mut active_lock = active_id().write();
+        if *active_lock == id {
+            // Clear active_id so Flutter's tab controller explicitly sets the new active tab.
             *active_lock = 0;
         }
+        term
+    };
+
+    // Reap child process asynchronously so blocking waitpid() doesn't stall the Flutter UI thread.
+    if let Some(term) = terminal {
+        thread::spawn(move || {
+            drop(term);
+        });
     }
 }
 
@@ -82,8 +94,12 @@ pub fn create_terminal_stream(sink: StreamSink<u32>) {
     thread::spawn(move || loop {
         {
             let lock = terminals().read();
+            let active = *active_id().read();
             for (&id, terminal) in lock.iter() {
-                if terminal.dirty.load(Ordering::SeqCst) {
+                let is_closed = terminal.is_closed.load(Ordering::SeqCst);
+                // Stream dirty updates only for the active tab; broadcast closure for all tabs.
+                let is_dirty = terminal.dirty.load(Ordering::SeqCst);
+                if (id == active && is_dirty) || is_closed {
                     let _ = sink.add(id);
                 }
             }
@@ -96,6 +112,26 @@ pub fn create_terminal_stream(sink: StreamSink<u32>) {
 pub fn get_terminal_frame(id: u32) -> Option<TerminalFrame> {
     let lock = terminals().read();
     lock.get(&id).and_then(|t| t.get_frame())
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn is_terminal_closed(id: u32) -> bool {
+    let lock = terminals().read();
+    lock.get(&id)
+        .map(|t| t.is_closed.load(Ordering::SeqCst))
+        .unwrap_or(true)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn is_terminal_app_cursor(id: u32) -> bool {
+    let lock = terminals().read();
+    lock.get(&id).map(|t| t.is_app_cursor()).unwrap_or(false)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn is_terminal_alt_screen(id: u32) -> bool {
+    let lock = terminals().read();
+    lock.get(&id).map(|t| t.is_alt_screen()).unwrap_or(false)
 }
 
 #[flutter_rust_bridge::frb(sync)]
